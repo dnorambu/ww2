@@ -83,7 +83,7 @@ int main(int argc, char** argv){
     //vector para agregar nuevos AED instalados
     vector<int> nuevos; 
     //mapa que mantiene el historial de las posiciones originales de la solucion inicial
-    map<int,tuple<int,int>> uwu;
+    map<int,tuple<int,int>> pos_originales;
     //indicador de intentos fallidos al intentar encontrar una mejora cualquiera (escapar de optimo local)
     int fail;
     int intentos_swap;
@@ -148,11 +148,20 @@ int main(int argc, char** argv){
                         cout<<"Mejora! Antes: "<<optimo_local<< "Despues: "<<resultado_actual<<endl;
                         optimo_local = resultado_actual;
                         presupuesto_temp -= 0.2;
+                        //guardar la posición original del AED
+
+                        //Rompemos el ciclo for para avanzar y hacer swap con la siguiente posición
+                        break;
                     }else{
-                        //No hubo mejora, por lo que debe deshacerse el movimiento e incrementar el numero
-                        //de intentos de swaps.
+                        //No hubo mejora, por lo que debe deshacerse el movimiento 
                         //Llamar a swap_pos con los argumentos *itr y posicion_entrante cambiados 
                         swap_pos(aed_in_position,sol_temp,*itr,posicion_entrante,eventos,&pca,&psa);
+                        eliminar_cobertura(vecindario[pca],ecpv);
+                        //Volver a cubrir los vecinos
+                        for (vec = vecindario[psa].begin() ; vec != vecindario[psa].end();vec++)
+                        {
+                            ecpv[*vec] += 1;
+                        }
                     }
                 }
             }
