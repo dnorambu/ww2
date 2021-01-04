@@ -1,20 +1,9 @@
 ##### Definitivo
 
-* Una solución inicial (SI para abreviar) se crea de la siguiente forma: 
-    1. Se elige la posición de un evento cualquiera PA 
-    2. Se agrega PA a SI. 
-    3. Se guarda la información de PA (coordenadas) --> PA = posición actual
-    4. Se elige una nueva posición PS cualquiera    --> PS = posición siguiente
-    5. Se verifica si cumple el criterio de la función miope
-        5.1. Si lo cumple, se agrega a SI. Actualizo PA <= PS
-        5.2. Si no, se ignora
-    6. Repetir desde (4.) hasta que el tamaño de SI llegue a cierto umbral.
-
-* La función miope verifica que PS se encuentre a "x" unidades (o más) de distancia de PA,
-siendo "x" el radio de cobertura entregado por la instancia. Notar que si se repite una 
-posición escogida, el algoritmo la agrega a SI, pero como SI es un conjunto esta acción
-no tiene efecto alguno puesto que el tamaño de SI no varía, asegurando que siempre se 
-tenga una cantidad inicial definida de AED instalados en la solución inicial.
+* La funcion miope evalua si la posicion seleccionada tiene más de "x" vecinos, donde
+x es un argumento entregado por linea de comandos. No necesita verificar si la posicion ya está 
+en la solución pues solo elige posiciones del conjunto de candidatas, el cual no tiene
+intersercción con el conjunto de instaladas.
 
 #### Borrador
 Supuestos necesarios en la ejecución

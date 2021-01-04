@@ -1,16 +1,20 @@
 #ifndef FUNCIONES
 #define FUNCIONES
-#include <unordered_set>
 //Constantes del algoritmo
-const int costo_instalación = 1;
+#include <unordered_set>
+#include <vector>
+const int costo_instalacion = 1;
 const float costo_swap = 0.2;
 //Funciones del algoritmo
-void buscar_vecinos(int cx[], int cy[],int id, int radio, int rango, int ecpv[], std::unordered_set<int> vecindario[]);
-void solucion_inicial(int cx[],int cy[], int eventos_cubiertos[],int radio,int eventos, unsigned int max_aed, std::unordered_set<int> & sol_in);
+void buscar_vecinos(int cx[], int cy[], int cobertura, int eventos, std::unordered_set<int> vecindario[]);
 float distancia(int,int,int,int);
-int cobertura_total(int ecpv[], int rango);
-void leer_sol(std::unordered_set<int> & solucion);
-void swap_pos(int aed_in_p[],unordered_set<int>&solucion, int posicion_entrante, int posicion_saliente, int eventos, int *pca,int *psa);
-void eliminar_cobertura(std::unordered_set<int> & vecinos, int ecpv[]);
-
+int cobertura_total(vector<int> &ecpv);
+void agregar_cob(std::unordered_set<int> &vecinos, vector<int> &ecpv);
+void eliminar_cob(unordered_set<int> &vecinos, vector<int> &ecpv);
+void swap_pos(int p1, int p2, unordered_set<int> &K,unordered_set<int> &Q);
+void solucion_inicial(std::unordered_set<int> &candidatas, 
+                    std::unordered_set<int> &instaladas,
+                    std::unordered_set<int> vecindario[],
+                    int cobertura, unsigned int max_aed, 
+                    unsigned int min_vec);
 #endif
