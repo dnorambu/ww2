@@ -16,5 +16,5 @@ funciones.o: funciones.cpp
 	$(CC) $(CFLAGS) -c funciones.cpp
 aed.o: aed.cpp
 	$(CC) $(CFLAGS) -c aed.cpp
-clear:
+clean:
 	rm *.o

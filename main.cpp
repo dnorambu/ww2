@@ -39,6 +39,7 @@ int main(int argc, char** argv){
     unordered_set<int> solucion_h;
     //Mapa que asocia posiciones con ID de AED
     map<int,int> movs_h;
+    float presupuesto_h;
 
     //Variables locales
     //Resultado obtenido en la iteracion
@@ -48,7 +49,7 @@ int main(int argc, char** argv){
     //Mapa que asocia posiciones con ID de AED
     map<int,int> movs_l;
 
-    //Variables auxiliares
+    //Variables nueva_posiliares
     //Copia de las posiciones candidatas
     unordered_set<int> cand_copy;
     //Resultado para verificar mejoras
@@ -64,7 +65,7 @@ int main(int argc, char** argv){
     float presupuesto_temp;
     //indicador de intentos fallidos al intentar encontrar una mejora cualquiera (escapar de optimo local)
     int fail;
-    
+    int id;
     //Pedir ruta de archivo
     string ruta;
     std::cout<<"Ruta de la instancia de prueba:";
@@ -83,15 +84,17 @@ int main(int argc, char** argv){
     //Presupuesto total de la instancia
     float presupuesto;
     stringstream ssin(linea);
-    
     ssin >> eventos;
     ssin >> presupuesto;
     ssin >> cobertura;
+
     //Coordenadas x de las ubicaciones
     int cx [eventos];               
     //Coordenadas y de las ubicaciones
     int cy [eventos];               
     //Guarda las posiciones donde hay un AED instalado previamente
+    unordered_set<int> preinstaladas;
+    //Guarda las posiciones donde hay un AED instalado 
     unordered_set<int> instaladas;
     //Guarda las posiciones candidatas para instalar un AED
     unordered_set<int> candidatas;   
@@ -102,17 +105,19 @@ int main(int argc, char** argv){
     unordered_set<int> vecindario[eventos];
     //Conjunto de AEDs existentes
     vector<Aed> aed_existentes;
+    vector<Aed> aed_existentes_h;
     //Guardar la información del archivo en memoria
     int i = 0;
     //aed es 1 (true) o 0 (false)
     bool aed_instalado;
+
     while (getline (archivo,linea)){
         stringstream ssin(linea);
         ssin >> cx[i];
         ssin >> cy[i];
         ssin >> aed_instalado;
         if(aed_instalado){
-            instaladas.insert(i);
+            preinstaladas.insert(i);
         }else{
             candidatas.insert(i);
         }
@@ -129,12 +134,13 @@ int main(int argc, char** argv){
         //Asignar presupuesto inicial
         presupuesto_temp = presupuesto;
         //Crear solucion inicial
+        instaladas = preinstaladas;
         solucion_inicial(candidatas,instaladas,vecindario,cobertura,max_aed,min_vec);
         //Crear los objetos AED
         for (int posicion: instaladas)
         {
             //Construccion del AED implicita en emplace_back
-            aed_existentes.emplace_back(id_aed,posicion,false,true);
+            aed_existentes.emplace_back(id_aed,posicion,false,false);
             //Guardar la posicion actual en el mapa local
             movs_l.insert({posicion,id_aed});
             id_aed++;    
@@ -146,14 +152,18 @@ int main(int argc, char** argv){
         }
         //Evaluar la cobertura inicial
         optimo_l = cobertura_total(ecpv);
-
+        cout<<"Optimo local: "<<optimo_l<<" Iteracion: "<<restart<<" Size ecpv: "<<ecpv.size()<<" Size aed_exist: "<<aed_existentes.size()<<endl;
+        for(Aed wea: aed_existentes){cout<<wea.getId()<<",";}
+        cout<<"\n";
         //Guardar el estado actual en copias
         solucion_l = instaladas;
         cand_copy = candidatas;
         ecpv_temp = ecpv;
+        
         //Reparar la solucion inicial
-        while ((presupuesto_temp > costo_swap) || (fail < max_fail))
+        while ((presupuesto_temp >= costo_instalacion) && (fail < max_fail))
         {
+            /*
             //Intentar un swap por cada ubicacion de la solucion inicial
             for(int ubic_aed: instaladas){
                 for(int ubic_cand: cand_copy){
@@ -167,162 +177,84 @@ int main(int argc, char** argv){
                     //Si existe una mejora, actualizamos las variables
                     if(optimo_temp>optimo_l){
                         optimo_l = optimo_temp;
+                        presupuesto_temp -= costo_swap;
+                        //El valor asociado a la llave ubic_aed es el id del AED que fue movido
+                        id = movs_l[ubic_aed];
                         //Recordar el movimiento.
-                        movs_l[ubic_cand] = movs_l[ubic_aed];
+                        movs_l[ubic_cand] = id;
                         //Ahora ubic_aed ya no tiene un aed instalado, se borra del mapa
+                        movs_l.erase(ubic_aed);
+                        //Recordar que el id del AED es también su posición en el vector
+                        aed_existentes[id].setPosActual(ubic_cand);
+                        aed_existentes[id].setRep(true);
+                        //Romper el for interno pues se logró una mejora 
+                        break;
+                    }else{
+                        //Deshacer los cambios
+                        swap_pos(ubic_cand,ubic_aed,solucion_l,cand_copy);
+                        ecpv_temp = ecpv;
+                        fail++;
                     } 
                 }
             }
-        }
-        
-        //Fin del ciclo, resetear variables
-        optimo_l = 0;
-        movs_l.clear();
-        solucion_l.clear();
-        ecpv_temp.clear();
-        ecpv.clear();
-        restart++;
-    }
-    /*
-    //Conjunto que representa a una solucion inicial
-    unordered_set<int> sol_in;                
-    //Conjunto solucion final optimo localmente
-    unordered_set<int> sol_final;             
-    //Conjunto que guardará la información de la solución inicial de la iteración donde se encontró el óptimo          
-    unordered_set<int> sol_in_copia; 
-    //Conjunto que se modificará en las iteraciones, copia del conjunto de la iteracion anterior
-    unordered_set<int> sol_temp; 
-    //vector para agregar nuevos AED instalados
-    vector<int> nuevos; 
-    
-    int intentos_swap;
-    //PCA (Posicion Con Aed) guarda a la posición que recibe un AED tras un swap
-    int pca;
-    //PSA (Posicion Sin Aed) guarda a la posición que pierde un AED tras un swap
-    int psa;
-    int resultado_actual;
-    int posicion_saliente, posicion_entrante;
-    bool stop = false;
-    while ()
-    {
-        //Crear solucion inicial
-        solucion_inicial(cx,cy,aed_in_position,cobertura,eventos,aed_iniciales, sol_in);
-        //Encontrar los vecinos de las posiciones con AED en la solucion encontrada
-        for (itr = sol_in.begin(); itr != sol_in.end(); ++itr) 
-        {
-            buscar_vecinos(cx,cy,*itr,cobertura,eventos,ecpv,vecindario);
-        }
-        //Tenemos el primer resultado de nuestra funcion de evaluacion para futura comparacion
-        optimo_local = cobertura_total(ecpv,eventos);
-        presupuesto_temp = presupuesto;
-        sol_temp = sol_in;
-        //Aplicar el movimiento swap o instalar nuevos AED hasta agotar el presupuesto
-        //o quedarse atascado 
-        while ((presupuesto_temp >= 0.2) && (fail < max_fail))
-        {
-            //Hacer un swap
-            //Tomo una ubicacion cualquiera de la solucion inicial, no de la temporal.
-            //De esta manera, el algoritmo intentará hacer 5 swaps por cada posición original
-            //de la solucion (5 swaps = 1 nuevo aed, en términos de costo)
-            for(itr = sol_in.begin(); itr != sol_in.end(); itr++){
-                //La posición que se retira de la solución temporal es *itr
-                //La posición que entra a la solución temporal es aleatoria y se elige a través
-                //del array ecpv
-                for(intentos_swap = 0; intentos_swap < 5; intentos_swap++){
-                    while(!stop){
-                    posicion_entrante = rand()%eventos;
-                    if(aed_in_position[posicion_entrante] == 0){
-                        stop = true;
-                        }
-                    }
-                    //Para evitar que en la próxima iteración no entre al while
-                    stop = false;
-                    swap_pos(aed_in_position,sol_temp,posicion_entrante,*itr,eventos,&pca,&psa);
-                    //Quitar cobertura a los vecinos de psa 
-                    eliminar_cobertura(vecindario[psa],ecpv);    
-                    //Cubrir a los vecinos de pca
-                    //Si ya tenemos el vecindario de pca, modificamos ecpv directamente
-                    if(!vecindario[pca].empty()){
-                        for (vec = vecindario[pca].begin() ; vec != vecindario[pca].end();vec++)
-                        {
-                            ecpv[*vec] += 1;
-                        }
-                    }else{//De lo contrario buscar sus vecinos 
-                        buscar_vecinos(cx,cy,pca,cobertura,eventos,ecpv,vecindario);
-                    }
-                    //Evaluar la solución temporal
-                    if(optimo_local < cobertura_total(ecpv,eventos)){
-                        //Encontramos una mejora
-                        cout<<"Mejora! Antes: "<<optimo_local<< "Despues: "<<resultado_actual<<endl;
-                        optimo_local = resultado_actual;
-                        presupuesto_temp -= costo_swap;
-                        //guardar la posición original del AED
-                        if(pos_originales.find(posicion_entrante) == pos_originales.end()){
-                            //Como la llave no está, significa que no se ha guardado la ubicacion original
-                            pos_originales.insert({posicion_entrante,make_tuple(cx[posicion_entrante],cy[posicion_entrante])});
-                        }
-                        //Rompemos el ciclo for para avanzar y hacer swap con la siguiente posición
-                        break;
-                    }else{
-                        //No hubo mejora, por lo que debe deshacerse el movimiento 
-                        //Llamar a swap_pos con los argumentos *itr y posicion_entrante cambiados 
-                        swap_pos(aed_in_position,sol_temp,*itr,posicion_entrante,eventos,&pca,&psa);
-                        eliminar_cobertura(vecindario[pca],ecpv);
-                        //Volver a cubrir los vecinos anteriores
-                        for (vec = vecindario[psa].begin() ; vec != vecindario[psa].end();vec++)
-                        {
-                            ecpv[*vec] += 1;
-                        }
-                    }
-                }//Terminan los swaps, intentar instalar un nuevo AED
-                while(!stop){
-                    posicion_entrante = rand()%eventos;
-                    if(aed_in_position[posicion_entrante] == 0){
-                        stop = true;
-                    }
-                }
-                stop = false;
-                
-                if(!vecindario[pca].empty()){
-                    for (vec = vecindario[pca].begin() ; vec != vecindario[pca].end();vec++)
-                    {
-                        ecpv[*vec] += 1;
-                    }
-                }else{//De lo contrario buscar sus vecinos 
-                    buscar_vecinos(cx,cy,pca,cobertura,eventos,ecpv,vecindario);
-                }
+            */
+            //Terminamos de hacer swaps, instalamos un nuevo AED si el presupuesto lo permite
+            if(presupuesto_temp >= costo_instalacion){
+                presupuesto_temp -= costo_instalacion;
+                int nueva_pos = select_random(cand_copy);
+                cand_copy.erase(nueva_pos);
+                instaladas.insert(nueva_pos);
+                agregar_cob(vecindario[nueva_pos],ecpv_temp);
+                optimo_l=cobertura_total(ecpv_temp);
+                aed_existentes.emplace_back(id_aed,nueva_pos,false,true);
+                id_aed++;
+            }else
+            {
+                fail++;
             }
-
-            // for(itr = sol_temp.begin(); itr != sol_temp.end(); itr++){
-            //     for(int j = 0; j < eventos-1;j++){
-            //         if(aed_in_position[j] == 0){
-            //             swap_pos(aed_in_position,sol_temp,j,*itr,eventos,&pca,&psa);
-            //             
-            //             eliminar_cobertura(vecindario[psa],ecpv);
-                        
-            //              
-            //             
-            //             else
-            //             {
-            //                 fail++;
-            //                 //Deshacer el swap
-            //             }
-            //         }                    
-            //     }    
-            // }
         }
-        
-        //Reset del arreglo de eventos cubiertos
-        memset(ecpv,0,sizeof(ecpv));
-        //Reset del conjunto solución sol_in
-        sol_in.clear();
+        //Termina de repararse la solucion inicial, comparar con la marca historica
+        cout<<"ML: "<<optimo_l<<" MH: "<<optimo_h<<endl;
+        if(optimo_l > optimo_h){
+            optimo_h = optimo_l;
+            solucion_h = solucion_l;
+            movs_h = movs_l;
+            presupuesto_h = presupuesto_temp;
+            aed_existentes_h = aed_existentes;
+        }
+        //Fin del ciclo, resetear variables
+        id_aed = 0;
+        aed_existentes.clear();
+        movs_l.clear();
+        instaladas.clear();
+        solucion_l.clear();
+        cand_copy.clear();
+        memset(&ecpv_temp[0], 0, ecpv_temp.size() * sizeof ecpv_temp[0]);
+        memset(&ecpv[0], 0, ecpv.size() * sizeof ecpv[0]);
         restart++;
     }
     
-    //Mostrar resultados 
-    std::cout<<"Total de eventos: "<<eventos<<endl;
-    // printing set s1
-    */
+    //Fin del algoritmo, entregar resultados
+    //Cobertura maxima alcanzada
+    cout<<"1. Maximo optimo encontrado: "<<optimo_h<<endl;
+    cout<<"2. Porcentaje de cobertura: "<<(optimo_h*100)/eventos<<endl;
+    //Printear las posiciones de los AED y si son nuevos o reposicionados
+    cout<<"AED's instalados"<<endl;
+    cout<<"ID \t Estado \t Pos. Original \t  Pos. Actual \t nuevo?"<<endl;
+    for(int posicion: solucion_h){
+        id = movs_h[posicion];
+        Aed aed_temp = aed_existentes_h[id];
+        int x_or = cx[aed_temp.getPosOrig()];
+        int y_or = cy[aed_temp.getPosOrig()];
+        int x_ac = cx[aed_temp.getPosActual()];
+        int y_ac = cy[aed_temp.getPosActual()];
+        if(aed_temp.getNuevo()){
+            cout<<id<<"\t"<<" Nuevo \t ("<<x_or<<","<<y_or<<")  ("<<x_ac<<","<<y_ac<<") "<<aed_temp.getNuevo()<<endl;
+        }else{
+            cout<<id<<"\t"<<" Reposicionado \t ("<<x_or<<","<<y_or<<")  ("<<x_ac<<","<<y_ac<<") "<<aed_temp.getNuevo()<<endl;
+        }
+    }
+    cout<<"Presupuesto sobrante: "<<presupuesto_h<<endl;
     return 0;
 }
 

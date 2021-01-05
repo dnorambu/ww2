@@ -7,7 +7,7 @@ using namespace std;
 
 // distancia retorna la distancia euclideana entre 2 puntos
 float distancia(int x1, int y1, int x2, int y2){
-    return sqrt(pow((x1-x2),2)+pow((y1-y2),2));
+    return sqrt((x1-x2)*(x1-x2)+(y1-y2)*(y1-y2));
 }
 //Para seleccionar elementos aleatorios de un conjunto
 int select_random(unordered_set<int> &a){
