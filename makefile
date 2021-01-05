@@ -7,12 +7,14 @@ CC = g++
 CFLAGS  = -g -Wall
 
 # executable files
-main: main.o funciones.o
-	$(CC) $(CFLAGS) -o main main.o funciones.o
+main: main.o funciones.o aed.o
+	$(CC) $(CFLAGS) -o main main.o funciones.o aed.o
 
 main.o: main.cpp 
 	$(CC) $(CFLAGS) -c main.cpp
 funciones.o: funciones.cpp
 	$(CC) $(CFLAGS) -c funciones.cpp
+aed.o: aed.cpp
+	$(CC) $(CFLAGS) -c aed.cpp
 clear:
 	rm *.o

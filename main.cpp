@@ -13,6 +13,7 @@
 #include <map>
 #include <array>
 #include "funciones.hpp"
+#include "aed.hpp"
 
 //Maximo numero de restarts del algoritmo
 const int max_restart = 3;
@@ -22,12 +23,48 @@ unsigned int max_aed = 10;
 const int max_fail = 20;
 //Minimo de vecinos para Greedy
 const int min_vec = 35;
+//Generador de id para los AED
+int id_aed = 0;
 
 using namespace std;
 
 int main(int argc, char** argv){
     //SEED basada en tiempo actual
     srand((unsigned) time(NULL));   
+    
+    //Variables historicas
+    //Mejor resultado de la funcion de evaluacion
+    int optimo_h = 0;
+    //Solucion que entregó el mejor resultado
+    unordered_set<int> solucion_h;
+    //Mapa que asocia posiciones con ID de AED
+    map<int,int> movs_h;
+
+    //Variables locales
+    //Resultado obtenido en la iteracion
+    int optimo_l = 0;
+    //Solucion modificada durante la iteracion
+    unordered_set<int> solucion_l;
+    //Mapa que asocia posiciones con ID de AED
+    map<int,int> movs_l;
+
+    //Variables auxiliares
+    //Copia de las posiciones candidatas
+    unordered_set<int> cand_copy;
+    //Resultado para verificar mejoras
+    int optimo_temp = 0;
+    //Contador de restart realizados
+    int restart = 0;
+    //Copia del vector ecpv
+    vector<int> ecpv_temp;
+    //Iteradores de conjuntos
+    unordered_set<int>::iterator itr;
+    unordered_set<int>::iterator vec;
+    //Presupuesto de cada iteracion
+    float presupuesto_temp;
+    //indicador de intentos fallidos al intentar encontrar una mejora cualquiera (escapar de optimo local)
+    int fail;
+    
     //Pedir ruta de archivo
     string ruta;
     std::cout<<"Ruta de la instancia de prueba:";
@@ -63,17 +100,18 @@ int main(int argc, char** argv){
     vector<int> ecpv(eventos);
     //Arreglo que guarda los vecinos de cada posicion               
     unordered_set<int> vecindario[eventos];
-
+    //Conjunto de AEDs existentes
+    vector<Aed> aed_existentes;
     //Guardar la información del archivo en memoria
     int i = 0;
     //aed es 1 (true) o 0 (false)
-    bool aed;
+    bool aed_instalado;
     while (getline (archivo,linea)){
         stringstream ssin(linea);
         ssin >> cx[i];
         ssin >> cy[i];
-        ssin >> aed;
-        if(aed){
+        ssin >> aed_instalado;
+        if(aed_instalado){
             instaladas.insert(i);
         }else{
             candidatas.insert(i);
@@ -85,45 +123,23 @@ int main(int argc, char** argv){
     
     buscar_vecinos(cx,cy,cobertura,eventos,vecindario);
 
-    //Variables historicas
-    //Mejor resultado de la funcion de evaluacion
-    int optimo_h = 0;
-    //Solucion que entregó el mejor resultado
-    unordered_set<int> solucion_h;
-    //Mapa que recuerda si hubo movimientos
-    map<int,bool> movs_h;
-
-    //Variables locales
-    //Resultado obtenido en la iteracion
-    int optimo_l = 0;
-    //Solucion modificada durante la iteracion
-    unordered_set<int> solucion_l;
-    //Mapa que recuerda movimientos
-    map<int,bool> movs_l;
-
-    //Variables auxiliares
-    //Copia de las posiciones candidatas
-    unordered_set<int> cand_copy;
-    //Resultado para verificar mejoras
-    int optimo_temp = 0;
-    //Contador de restart realizados
-    int restart = 0;
-    //Copia del vector ecpv
-    vector<int> ecpv_temp;
-    //Iteradores de conjuntos
-    unordered_set<int>::iterator itr;
-    unordered_set<int>::iterator vec;
-    //Presupuesto de cada iteracion
-    float presupuesto_temp;
-    //indicador de intentos fallidos al intentar encontrar una mejora cualquiera (escapar de optimo local)
-    int fail;
     //Comienza el algoritmo
-    
+
     while(restart < max_restart){
         //Asignar presupuesto inicial
         presupuesto_temp = presupuesto;
         //Crear solucion inicial
         solucion_inicial(candidatas,instaladas,vecindario,cobertura,max_aed,min_vec);
+        //Crear los objetos AED
+        for (int posicion: instaladas)
+        {
+            //Construccion del AED implicita en emplace_back
+            aed_existentes.emplace_back(id_aed,posicion,false,true);
+            //Guardar la posicion actual en el mapa local
+            movs_l.insert({posicion,id_aed});
+            id_aed++;    
+        }
+         
         //Cubrir a los vecinos del conjunto "instaladas" inicial
         for(int ubicacion: instaladas){
             agregar_cob(vecindario[ubicacion], ecpv);
@@ -151,14 +167,9 @@ int main(int argc, char** argv){
                     //Si existe una mejora, actualizamos las variables
                     if(optimo_temp>optimo_l){
                         optimo_l = optimo_temp;
-                        //Recordar el movimiento. Esto solo ocurre 1 vez, cuando se mueve el
-                        //AED a una posición diferente de la que tenía en la solución inicial
-                        //Si la ubicacion no está en movs_l es porque no se había movido de su
-                        //posición original.
-                        if(movs_l.find(ubic_aed) == movs_l.end()){
-                            bool aux = true;
-                            movs_l.insert({ubic_aed,true});
-                        }
+                        //Recordar el movimiento.
+                        movs_l[ubic_cand] = movs_l[ubic_aed];
+                        //Ahora ubic_aed ya no tiene un aed instalado, se borra del mapa
                     } 
                 }
             }
