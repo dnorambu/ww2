@@ -67,8 +67,8 @@ int cobertura_total(vector<int> &ecpv){
 // Q : conjunto de posiciones sin AED (candidatas)
 void swap_pos(int p1, int p2, unordered_set<int> &K,unordered_set<int> &Q){
     K.erase(p1);
-    K.insert(p2);
     Q.erase(p2);
+    K.insert(p2);
     Q.insert(p1);
 }
 //agregar_cob suma +1 a cada vecino de la posicion i en el vector ecpv.

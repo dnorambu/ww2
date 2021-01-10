@@ -9,7 +9,7 @@ class Aed{
         bool m_reposicionado;
         bool m_nuevo;
     public:
-        Aed(int id, int pos_original, bool rep, bool nuevo);
+        Aed(int id, int pos_original, int pos_actual, bool rep, bool nuevo);
         //getters
         int getId(){return m_id;}
         int getPosOrig(){return m_pos_original;}

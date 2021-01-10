@@ -4,13 +4,9 @@
 #include <string>
 #include <string.h>
 #include <sstream>
-#include <typeinfo>
-#include <cstdlib>
-#include <ctime>
 #include <unordered_set>
 #include <vector>
 #include <tuple>
-#include <map>
 #include <array>
 #include "funciones.hpp"
 #include "aed.hpp"
@@ -18,15 +14,15 @@
 //Maximo numero de restarts del algoritmo
 const int max_restart = 3;
 //Maximo n° de AED en una solucion inicial 
-unsigned int max_aed = 10;  
-//Maximo numero de fallas al intentar mejorar una solucion
-const int max_fail = 20;
+unsigned int max_aed = 6;  
 //Minimo de vecinos para Greedy
-const int min_vec = 35;
+const int min_vec = 15;
 //Generador de id para los AED
 int id_aed = 0;
+const float costo_instalacion = 1;
+const float costo_swap = 0.2;
 
-using namespace std;
+
 
 int main(int argc, char** argv){
     //SEED basada en tiempo actual
@@ -36,44 +32,38 @@ int main(int argc, char** argv){
     //Mejor resultado de la funcion de evaluacion
     int optimo_h = 0;
     //Solucion que entregó el mejor resultado
-    unordered_set<int> solucion_h;
-    //Mapa que asocia posiciones con ID de AED
-    map<int,int> movs_h;
+    std::unordered_set<int> solucion_h;
     float presupuesto_h;
 
     //Variables locales
     //Resultado obtenido en la iteracion
     int optimo_l = 0;
     //Solucion modificada durante la iteracion
-    unordered_set<int> solucion_l;
-    //Mapa que asocia posiciones con ID de AED
-    map<int,int> movs_l;
+    std::unordered_set<int> solucion_l;
 
-    //Variables nueva_posiliares
-    //Copia de las posiciones candidatas
-    unordered_set<int> cand_copy;
+    //Variables auxiliares
     //Resultado para verificar mejoras
     int optimo_temp = 0;
     //Contador de restart realizados
     int restart = 0;
-    //Copia del vector ecpv
-    vector<int> ecpv_temp;
     //Iteradores de conjuntos
-    unordered_set<int>::iterator itr;
-    unordered_set<int>::iterator vec;
+    std::unordered_set<int>::iterator itr;
+    std::unordered_set<int>::iterator vec;
     //Presupuesto de cada iteracion
     float presupuesto_temp;
     //indicador de intentos fallidos al intentar encontrar una mejora cualquiera (escapar de optimo local)
-    int fail;
-    int id;
+    unsigned int fail;
+    int dummy;
+    //switch para indicar mejoras en la reparacion
+    bool mejora;
     //Pedir ruta de archivo
-    string ruta;
-    std::cout<<"Ruta de la instancia de prueba:";
-    cin>>ruta;
+    std::string ruta;
+    std::cout<<"Ruta (relativa) de la instancia de prueba:";
+    std::cin>>ruta;
 
     //Leer el archivo
-    string linea;
-    ifstream archivo(ruta);
+    std::string linea;
+    std::ifstream archivo(ruta);
 
     //Obtener los parametros iniciales
     getline (archivo, linea);
@@ -83,7 +73,7 @@ int main(int argc, char** argv){
     int cobertura;
     //Presupuesto total de la instancia
     float presupuesto;
-    stringstream ssin(linea);
+    std::stringstream ssin(linea);
     ssin >> eventos;
     ssin >> presupuesto;
     ssin >> cobertura;
@@ -93,26 +83,26 @@ int main(int argc, char** argv){
     //Coordenadas y de las ubicaciones
     int cy [eventos];               
     //Guarda las posiciones donde hay un AED instalado previamente
-    unordered_set<int> preinstaladas;
+    std::unordered_set<int> preinstaladas;
     //Guarda las posiciones donde hay un AED instalado 
-    unordered_set<int> instaladas;
+    std::unordered_set<int> instaladas;
     //Guarda las posiciones candidatas para instalar un AED
-    unordered_set<int> candidatas;   
-    //ecpv -> Evento Cubierto Por Vecino (ecpv[i] += 1 por cada vecino i que lo cubra)
+    std::unordered_set<int> candidatas;   
+    //ecpv -> Evento Cubierto Por V cino (ecpv[i] += 1 por cada v    cino i que lo cubra)
     //En base a este registro se calculará la función de evaluación
-    vector<int> ecpv(eventos);
-    //Arreglo que guarda los vecinos de cada posicion               
-    unordered_set<int> vecindario[eventos];
+    std::vector<int> ecpv(eventos);
+    //Arreglo que guarda los v  cinos de cada posicion               
+    std::unordered_set<int> vecindario[eventos];
     //Conjunto de AEDs existentes
-    vector<Aed> aed_existentes;
-    vector<Aed> aed_existentes_h;
+    std::vector<Aed> aed_existentes;
+    std::vector<Aed> aed_existentes_h;
     //Guardar la información del archivo en memoria
     int i = 0;
     //aed es 1 (true) o 0 (false)
     bool aed_instalado;
 
     while (getline (archivo,linea)){
-        stringstream ssin(linea);
+        std::stringstream ssin(linea);
         ssin >> cx[i];
         ssin >> cy[i];
         ssin >> aed_instalado;
@@ -131,130 +121,145 @@ int main(int argc, char** argv){
     //Comienza el algoritmo
 
     while(restart < max_restart){
+        //Esta linea es para respetar posibles aed preinstalados (segun lo indicado en el .txt)
+        //en la creacion de nuevas soluciones iniciales. Sin este paso, el algoritmo no
+        //consideraría tal información y las instancias no tendrían diferencia alguna al
+        //ejecutar el codigo
+        instaladas = preinstaladas;
+        //Crear solucion inicial
+        solucion_inicial(candidatas,instaladas,vecindario,cobertura,max_aed,min_vec);
         //Asignar presupuesto inicial
         presupuesto_temp = presupuesto;
-        //Crear solucion inicial
-        instaladas = preinstaladas;
-        solucion_inicial(candidatas,instaladas,vecindario,cobertura,max_aed,min_vec);
-        //Crear los objetos AED
-        for (int posicion: instaladas)
-        {
+        //Crear los objetos AED iniciales
+        for(int posicion: instaladas){
             //Construccion del AED implicita en emplace_back
-            aed_existentes.emplace_back(id_aed,posicion,false,false);
-            //Guardar la posicion actual en el mapa local
-            movs_l.insert({posicion,id_aed});
+            aed_existentes.emplace_back(id_aed,posicion,posicion,false,false);
             id_aed++;    
         }
-         
         //Cubrir a los vecinos del conjunto "instaladas" inicial
         for(int ubicacion: instaladas){
             agregar_cob(vecindario[ubicacion], ecpv);
         }
         //Evaluar la cobertura inicial
         optimo_l = cobertura_total(ecpv);
-        cout<<"Optimo local: "<<optimo_l<<" Iteracion: "<<restart<<" Size ecpv: "<<ecpv.size()<<" Size aed_exist: "<<aed_existentes.size()<<endl;
-        for(Aed wea: aed_existentes){cout<<wea.getId()<<",";}
-        cout<<"\n";
-        //Guardar el estado actual en copias
-        solucion_l = instaladas;
-        cand_copy = candidatas;
-        ecpv_temp = ecpv;
-        
-        //Reparar la solucion inicial
-        while ((presupuesto_temp >= costo_instalacion) && (fail < max_fail))
-        {
-            /*
+        fail = 0;
+        dummy = 0;
+        std::cout<<"\nAED Existentes! Size: "<<aed_existentes.size()<<std::endl;
+        for(Aed aed_aux: aed_existentes){
+            std::cout<<aed_aux.getId()<<" "<<aed_aux.getPosOrig()<<" "<<aed_aux.getPosActual()<<std::endl;
+        }
+        //Reparar la solucion inicial 
+        while ((fail <= aed_existentes.size()) && (presupuesto_temp >= costo_swap))
+        {   
+            int indice_aed = 0;
             //Intentar un swap por cada ubicacion de la solucion inicial
-            for(int ubic_aed: instaladas){
-                for(int ubic_cand: cand_copy){
-                    swap_pos(ubic_aed,ubic_cand,solucion_l,cand_copy);
-                    //Debe modificarse ecpv_temp primero para evaluar la nueva configuracion 
-                    //Quitarle cobertura a los vecinos de ubic_aed
-                    eliminar_cob(vecindario[ubic_aed],ecpv_temp);
-                    //Dar cobertura a los vecinos de ubic_cand
-                    agregar_cob(vecindario[ubic_cand],ecpv_temp);
-                    optimo_temp = cobertura_total(ecpv_temp);
-                    //Si existe una mejora, actualizamos las variables
-                    if(optimo_temp>optimo_l){
-                        optimo_l = optimo_temp;
-                        presupuesto_temp -= costo_swap;
-                        //El valor asociado a la llave ubic_aed es el id del AED que fue movido
-                        id = movs_l[ubic_aed];
-                        //Recordar el movimiento.
-                        movs_l[ubic_cand] = id;
-                        //Ahora ubic_aed ya no tiene un aed instalado, se borra del mapa
-                        movs_l.erase(ubic_aed);
-                        //Recordar que el id del AED es también su posición en el vector
-                        aed_existentes[id].setPosActual(ubic_cand);
-                        aed_existentes[id].setRep(true);
-                        //Romper el for interno pues se logró una mejora 
-                        break;
-                    }else{
-                        //Deshacer los cambios
-                        swap_pos(ubic_cand,ubic_aed,solucion_l,cand_copy);
-                        ecpv_temp = ecpv;
+            for(Aed aed: aed_existentes){
+                //No iterar si el anterior swap agotó el presupuesto
+                if(presupuesto_temp < costo_swap){
+                    break;
+                }
+                int u_con_aed = aed.getPosActual();
+                unsigned int intentos = 0;
+                mejora = false;
+                while((!mejora) && (intentos < candidatas.size())){
+                    //Tomar una ubicacion de las candidatas para hacer un swap
+                    for(int u_sin_aed: candidatas){
+                        intentos++;
+                        //Recordar:
+                        // Si el swap mejora la solución, u_con_aed saldrá de la solución,
+                        // siendo reemplazada por u_sin_aed
+                        //Debe modificarse ecpv primero para evaluar la nueva configuracion 
+                        //Quitarle cobertura a los vecinos de aed
+                        eliminar_cob(vecindario[u_con_aed],ecpv);
+                        //Dar cobertura a los vecinos de u_sin_aed
+                        agregar_cob(vecindario[u_sin_aed],ecpv);
+                        optimo_temp = cobertura_total(ecpv);
+                        if(optimo_temp > optimo_l){
+                            swap_pos(u_con_aed,u_sin_aed,instaladas,candidatas);
+                            presupuesto_temp -= costo_swap;
+                            std::cout<<dummy<<" Swaping: sale "<<u_con_aed<<" entra:"<<u_sin_aed<<" pt: "<<presupuesto_temp<<"\n";
+                            std::cout<<"AED POS ANT: "<<aed.getPosActual()<<" "<<aed.getPosOrig()<<"\n";
+                            if(aed.getNuevo()){
+                                Aed aed_temp(aed.getId(),aed.getPosOrig(),u_sin_aed,true,true);
+                                aed_existentes[indice_aed] = aed_temp;
+                            }else{
+                                Aed aed_temp(aed.getId(),aed.getPosOrig(),u_sin_aed,true,false);
+                                aed_existentes[indice_aed] = aed_temp;
+                            }
+                            std::cout<<"AED POS DES: "<<aed_existentes[indice_aed].getPosActual()<<" "<<aed_existentes[indice_aed].getPosOrig()<<std::endl;
+                            optimo_l = optimo_temp;
+                            dummy++;
+                            mejora = true;
+                            break;
+                        }else{
+                            //Marcha atrás ya que no se encontró una mejora en este intento
+                            eliminar_cob(vecindario[u_sin_aed],ecpv);
+                            agregar_cob(vecindario[u_con_aed],ecpv);
+                        }
+                    }
+                    if(intentos == candidatas.size()){
+                        //Fallo pues no hubo un swap que mejore la cobertura proporcionada por el aed en la posicion actual
                         fail++;
-                    } 
+                    }
+                    indice_aed++;
                 }
             }
-            */
+            std::cout<<"Fin de swaps"<<std::endl;
+            std::cout<<"\nInstaladas! Size: "<<instaladas.size()<<" -> ";
+            for (int k : instaladas){
+                std::cout<<k<<",";
+            }
+            std::cout<<"\nAED Existentes! Size: "<<aed_existentes.size()<<std::endl;
+            for(Aed aed_aux: aed_existentes){
+                std::cout<<aed_aux.getId()<<" "<<aed_aux.getPosOrig()<<" "<<aed_aux.getPosActual()<<std::endl;
+            }
+            std::cout<<"\nPT: "<<presupuesto_temp<<" FAIL: "<<fail<<"\n"<<std::endl;
             //Terminamos de hacer swaps, instalamos un nuevo AED si el presupuesto lo permite
             if(presupuesto_temp >= costo_instalacion){
                 presupuesto_temp -= costo_instalacion;
-                int nueva_pos = select_random(cand_copy);
-                cand_copy.erase(nueva_pos);
+                int nueva_pos = select_random(candidatas);
+                candidatas.erase(nueva_pos);
                 instaladas.insert(nueva_pos);
-                agregar_cob(vecindario[nueva_pos],ecpv_temp);
-                optimo_l=cobertura_total(ecpv_temp);
-                aed_existentes.emplace_back(id_aed,nueva_pos,false,true);
+                agregar_cob(vecindario[nueva_pos],ecpv);
+                optimo_l=cobertura_total(ecpv);
+                aed_existentes.emplace_back(id_aed,nueva_pos,nueva_pos,false,true);
                 id_aed++;
-            }else
-            {
-                fail++;
+                fail = 0;
             }
         }
-        //Termina de repararse la solucion inicial, comparar con la marca historica
-        cout<<"ML: "<<optimo_l<<" MH: "<<optimo_h<<endl;
+        // Termina de repararse la solucion inicial, comparar con la marca historica
+        std::cout<<"ML: "<<optimo_l<<" MH: "<<optimo_h<<std::endl;
         if(optimo_l > optimo_h){
             optimo_h = optimo_l;
-            solucion_h = solucion_l;
-            movs_h = movs_l;
+            solucion_h = instaladas;
             presupuesto_h = presupuesto_temp;
             aed_existentes_h = aed_existentes;
         }
-        //Fin del ciclo, resetear variables
+        //Reiniciar variables en cada restart
         id_aed = 0;
-        aed_existentes.clear();
-        movs_l.clear();
-        instaladas.clear();
-        solucion_l.clear();
-        cand_copy.clear();
-        memset(&ecpv_temp[0], 0, ecpv_temp.size() * sizeof ecpv_temp[0]);
-        memset(&ecpv[0], 0, ecpv.size() * sizeof ecpv[0]);
         restart++;
+        aed_existentes.clear();
+        memset(&ecpv[0], 0, ecpv.size() * sizeof ecpv[0]);
     }
-    
     //Fin del algoritmo, entregar resultados
     //Cobertura maxima alcanzada
-    cout<<"1. Maximo optimo encontrado: "<<optimo_h<<endl;
-    cout<<"2. Porcentaje de cobertura: "<<(optimo_h*100)/eventos<<endl;
+    
+    std::cout<<"1. Maximo optimo encontrado: "<<optimo_h<<std::endl;
+    std::cout<<"2. Porcentaje de cobertura: "<<(optimo_h*100)/eventos<<std::endl;
     //Printear las posiciones de los AED y si son nuevos o reposicionados
-    cout<<"AED's instalados"<<endl;
-    cout<<"ID \t Estado \t Pos. Original \t  Pos. Actual \t nuevo?"<<endl;
-    for(int posicion: solucion_h){
-        id = movs_h[posicion];
-        Aed aed_temp = aed_existentes_h[id];
+    std::cout<<"AED's instalados"<<std::endl;
+    std::cout<<"ID \t Estado \t Pos. Original \t  Pos. Actual \t nuevo?\t(x,y)or \t (x,y)ac"<<std::endl;
+    for(Aed aed_temp: aed_existentes_h){
         int x_or = cx[aed_temp.getPosOrig()];
         int y_or = cy[aed_temp.getPosOrig()];
         int x_ac = cx[aed_temp.getPosActual()];
         int y_ac = cy[aed_temp.getPosActual()];
         if(aed_temp.getNuevo()){
-            cout<<id<<"\t"<<" Nuevo \t ("<<x_or<<","<<y_or<<")  ("<<x_ac<<","<<y_ac<<") "<<aed_temp.getNuevo()<<endl;
+            std::cout<<aed_temp.getId()<<"\t"<<" Nuevo \t \t (----,----) \t  ("<<x_ac<<","<<y_ac<<") "<<aed_temp.getNuevo()<<"\t"<<aed_temp.getPosOrig()<<"\t"<<aed_temp.getPosActual()<<std::endl;
         }else{
-            cout<<id<<"\t"<<" Reposicionado \t ("<<x_or<<","<<y_or<<")  ("<<x_ac<<","<<y_ac<<") "<<aed_temp.getNuevo()<<endl;
+            std::cout<<aed_temp.getId()<<"\t"<<" Reposicionado \t ("<<x_or<<","<<y_or<<")  ("<<x_ac<<","<<y_ac<<") "<<aed_temp.getNuevo()<<"\t"<<aed_temp.getPosOrig()<<"\t"<<aed_temp.getPosActual()<<std::endl;
         }
     }
-    cout<<"Presupuesto sobrante: "<<presupuesto_h<<endl;
+    std::cout<<"Presupuesto sobrante: "<<presupuesto_h<<std::endl;
     return 0;
 }
-

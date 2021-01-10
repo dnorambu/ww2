@@ -2,9 +2,6 @@
 #define FUNCIONES
 #include <unordered_set>
 #include <vector>
-//Constantes del algoritmo
-const int costo_instalacion = 1;
-const float costo_swap = 0.2;
 //Funciones del algoritmo
 void buscar_vecinos(int cx[], int cy[], int cobertura, int eventos, std::unordered_set<int> vecindario[]);
 float distancia(int x1,int y1,int x2,int y2);
