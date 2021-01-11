@@ -8,23 +8,41 @@
 #include <vector>
 #include <tuple>
 #include <array>
+#include <iomanip>
 #include "funciones.hpp"
 #include "aed.hpp"
+#include "time.h"
 
-//Maximo numero de restarts del algoritmo
-const int max_restart = 3;
-//Maximo n° de AED en una solucion inicial 
-unsigned int max_aed = 6;  
-//Minimo de vecinos para Greedy
-const int min_vec = 15;
 //Generador de id para los AED
 int id_aed = 0;
 const float costo_instalacion = 1;
 const float costo_swap = 0.2;
 
-
-
-int main(int argc, char** argv){
+int main(int argc, char* argv[]){
+    //recordar que argv[0] es el nombre del programa, tambien cuenta como parametro
+    if(argc != 4){
+        std::cout<<"Se entrego un numero incorrecto de parametros.\nEsperados: 4, Entregados: "<<argc<<std::endl;
+        exit(0);
+    }
+    std::istringstream iss1(argv[1]);
+    //Maximo numero de restarts del algoritmo
+    int max_restart;
+    iss1 >> max_restart;
+    //Maximo n° de AED en una solucion inicial 
+    std::istringstream iss2(argv[2]);
+    int max_aed;
+    iss2 >> max_aed;
+    //Minimo de vecinos para Greedy
+    std::istringstream iss3(argv[3]);
+    int min_vec;
+    iss3 >> min_vec;
+    //Pedir ruta de archivo
+    std::string ruta;
+    std::cout<<"Ruta (relativa) de la instancia de prueba:";
+    std::cin>>ruta;
+    //Luego de recibir la ruta comienza la medición del tiempo
+    time_t start,end;
+    time(&start);
     //SEED basada en tiempo actual
     srand((unsigned) time(NULL));   
     
@@ -56,10 +74,6 @@ int main(int argc, char** argv){
     int dummy;
     //switch para indicar mejoras en la reparacion
     bool mejora;
-    //Pedir ruta de archivo
-    std::string ruta;
-    std::cout<<"Ruta (relativa) de la instancia de prueba:";
-    std::cin>>ruta;
 
     //Leer el archivo
     std::string linea;
@@ -117,7 +131,6 @@ int main(int argc, char** argv){
     archivo.close();
     
     buscar_vecinos(cx,cy,cobertura,eventos,vecindario);
-
     //Comienza el algoritmo
 
     while(restart < max_restart){
@@ -248,18 +261,26 @@ int main(int argc, char** argv){
     std::cout<<"2. Porcentaje de cobertura: "<<(optimo_h*100)/eventos<<std::endl;
     //Printear las posiciones de los AED y si son nuevos o reposicionados
     std::cout<<"AED's instalados"<<std::endl;
-    std::cout<<"ID \t Estado \t Pos. Original \t  Pos. Actual \t nuevo?\t(x,y)or \t (x,y)ac"<<std::endl;
+    std::cout<<"ID \t Estado \t Pos. Original \t  Pos. Actual"<<std::endl;
     for(Aed aed_temp: aed_existentes_h){
         int x_or = cx[aed_temp.getPosOrig()];
         int y_or = cy[aed_temp.getPosOrig()];
         int x_ac = cx[aed_temp.getPosActual()];
         int y_ac = cy[aed_temp.getPosActual()];
-        if(aed_temp.getNuevo()){
-            std::cout<<aed_temp.getId()<<"\t"<<" Nuevo \t \t (----,----) \t  ("<<x_ac<<","<<y_ac<<") "<<aed_temp.getNuevo()<<"\t"<<aed_temp.getPosOrig()<<"\t"<<aed_temp.getPosActual()<<std::endl;
+        if(aed_temp.getNuevo() && aed_temp.getRep()){
+            std::cout<<aed_temp.getId()<<"\t"<<" Nuevo y repos.  ("<<x_or<<","<<y_or<<")  ("<<x_ac<<","<<y_ac<<") "<<std::endl;
+        }else if(!aed_temp.getNuevo() && aed_temp.getRep()){
+            std::cout<<aed_temp.getId()<<"\t"<<" Reposicionado \t ("<<x_or<<","<<y_or<<")  ("<<x_ac<<","<<y_ac<<") "<<std::endl;
         }else{
-            std::cout<<aed_temp.getId()<<"\t"<<" Reposicionado \t ("<<x_or<<","<<y_or<<")  ("<<x_ac<<","<<y_ac<<") "<<aed_temp.getNuevo()<<"\t"<<aed_temp.getPosOrig()<<"\t"<<aed_temp.getPosActual()<<std::endl;
+            std::cout<<aed_temp.getId()<<"\t"<<" Nuevo \t \t (-----,------)   ("<<x_ac<<","<<y_ac<<") "<<std::endl;
         }
     }
-    std::cout<<"Presupuesto sobrante: "<<presupuesto_h<<std::endl;
+    
+    std::cout<<std::setprecision(6)<<"Presupuesto sobrante: "<<presupuesto_h<<std::endl;
+    time(&end); 
+    // Tiempo total  
+    double time_taken = double(end - start) / double(CLOCKS_PER_SEC); 
+    std::cout << "Tiempo de ejecución : "<< time_taken << std::setprecision(5);
+    std::cout << " sec " << std::endl; 
     return 0;
 }

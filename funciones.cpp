@@ -30,7 +30,7 @@ void solucion_inicial(unordered_set<int> &candidatas, unordered_set<int> &instal
     {
         //Implementacion de la funcion miope (detalles en README)
         candidato = select_random(candidatas);
-        if(vecindario[candidato].size()>min_vec){
+        if(vecindario[candidato].size()>=min_vec){
             instaladas.insert(candidato);
         }
     }
