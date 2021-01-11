@@ -33,7 +33,7 @@ int main(int argc, char* argv[]){
     int max_restart;
     iss2 >> max_restart;
     //Maximo n° de AED en una solucion inicial 
-    int max_aed = 3;
+    int max_aed = 4;
     //Minimo de vecinos para Greedy
     int min_vec = 15;
     
