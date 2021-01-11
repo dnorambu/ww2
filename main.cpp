@@ -20,8 +20,8 @@ const float costo_swap = 0.2;
 
 int main(int argc, char* argv[]){
     //recordar que argv[0] es el nombre del programa, tambien cuenta como parametro
-    if(argc != 5){
-        std::cout<<"Se entrego un numero incorrecto de parametros.\nEsperados: 5, Entregados: "<<argc<<"\n";
+    if(argc != 3){
+        std::cout<<"Se entrego un numero incorrecto de parametros.\nEsperados: 3 (main, ruta instancia, numero de restarts)\nEntregados: "<<argc<<"\n";
         exit(0);
     }
     std::istringstream iss1(argv[1]);
@@ -33,13 +33,10 @@ int main(int argc, char* argv[]){
     int max_restart;
     iss2 >> max_restart;
     //Maximo n° de AED en una solucion inicial 
-    std::istringstream iss3(argv[3]);
-    int max_aed;
-    iss3 >> max_aed;
+    int max_aed = 3;
     //Minimo de vecinos para Greedy
-    std::istringstream iss4(argv[4]);
-    int min_vec;
-    iss4 >> min_vec;
+    int min_vec = 15;
+    
     //Luego de recibir la ruta comienza la medición del tiempo
     time_t start,end;
     time(&start);
@@ -130,12 +127,6 @@ int main(int argc, char* argv[]){
     //Comienza el algoritmo
 
     while(restart < max_restart){
-        
-        //Esta linea es para respetar posibles aed preinstalados (segun lo indicado en el .txt)
-        //en la creacion de nuevas soluciones iniciales. Sin este paso, el algoritmo no
-        //consideraría tal información y las instancias no tendrían diferencia alguna al
-        //ejecutar el codigo
-        instaladas = preinstaladas;
         //Crear solucion inicial
         solucion_inicial(candidatas,instaladas,vecindario,cobertura,max_aed,min_vec);
         //Asignar presupuesto inicial
@@ -159,8 +150,9 @@ int main(int argc, char* argv[]){
             int indice_aed = 0;
             //Intentar un swap por cada ubicacion de la solucion inicial
             for(Aed aed: aed_existentes){
-                //No iterar si el anterior swap agotó el presupuesto
-                if(presupuesto_temp < costo_swap){
+                //No iterar si el anterior swap agotó el presupuesto o ya hemos fallado suficiente
+                //Evitamos loop infinitos y violaciones de memoria
+                if((presupuesto_temp < costo_swap) || (fail >= aed_existentes.size())){
                     break;
                 }
                 int u_con_aed = aed.getPosActual();
@@ -250,7 +242,7 @@ int main(int argc, char* argv[]){
         int y_ac = cy[aed_temp.getPosActual()];
         if(aed_temp.getNuevo() && aed_temp.getRep()){
             std::cout<<aed_temp.getId()<<"\t"<<" Nuevo y repos.  ("<<x_or<<","<<y_or<<")  ("<<x_ac<<","<<y_ac<<") "<<"\n";
-        }else if(!aed_temp.getNuevo() && aed_temp.getRep()){
+        }else if((!aed_temp.getNuevo() && aed_temp.getRep()) || (preinstaladas.find(aed_temp.getPosOrig()) != preinstaladas.end())){
             std::cout<<aed_temp.getId()<<"\t"<<" Reposicionado \t ("<<x_or<<","<<y_or<<")  ("<<x_ac<<","<<y_ac<<") "<<"\n";
         }else{
             std::cout<<aed_temp.getId()<<"\t"<<" Nuevo \t \t (-----,------)   ("<<x_ac<<","<<y_ac<<") "<<"\n";
