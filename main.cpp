@@ -253,6 +253,13 @@ int main(int argc, char* argv[]){
     // Tiempo total  
     double time_taken = double(end - start);
     std::cout << "Tiempo de ejecución : "<< time_taken << std::setprecision(5);
-    std::cout << " sec " << "\n"; 
+    std::cout << " sec " << "\n";
+    std::ofstream outfile;
+    outfile.open("tests/t7ca.txt", std::ios_base::app); // append instead of overwrite
+    std::string s = std::to_string(time_taken) + " " + std::to_string(max_restart) + " "+std::to_string(presupuesto_h) + "\n";
+    std::string s2= std::to_string(optimo_h) + " " + std::to_string((optimo_h*100)/eventos) + " ";
+    s = s2 + s;
+    outfile << s;
+    outfile.close(); 
     return 0;
 }
